@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model companies {
+  id                                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                               String
+  type                               String
+  created_at                         DateTime         @default(now()) @db.Timestamptz(6)
+  orders_orders_buyer_idTocompanies  orders[]         @relation("orders_buyer_idTocompanies")
+  orders_orders_seller_idTocompanies orders[]         @relation("orders_seller_idTocompanies")
+  products                           products[]
+  quote_requests                     quote_requests[]
+  users                              users[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_items {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id   String   @db.Uuid
+  product_id String   @db.Uuid
+  quantity   Int
+  unit_price Decimal  @db.Decimal
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model orders {
+  id                                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyer_id                              String        @db.Uuid
+  seller_id                             String        @db.Uuid
+  status                                String        @default("pending")
+  total                                 Decimal       @default(0) @db.Decimal
+  needs_approval                        Boolean       @default(false)
+  approved_by                           String?       @db.Uuid
+  created_by                            String        @db.Uuid
+  created_at                            DateTime      @default(now()) @db.Timestamptz(6)
+  order_items                           order_items[]
+  users_orders_approved_byTousers       users?        @relation("orders_approved_byTousers", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies_orders_buyer_idTocompanies  companies     @relation("orders_buyer_idTocompanies", fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_orders_created_byTousers        users         @relation("orders_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companies_orders_seller_idTocompanies companies     @relation("orders_seller_idTocompanies", fields: [seller_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model products {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  seller_id      String           @db.Uuid
+  name           String
+  description    String           @default("")
+  category       String
+  min_order_qty  Int              @default(1)
+  price_tiers    Json             @default("[]")
+  image_url      String?
+  status         String           @default("draft")
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  order_items    order_items[]
+  companies      companies        @relation(fields: [seller_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  quote_requests quote_requests[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model quote_requests {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyer_id              String    @db.Uuid
+  product_id            String    @db.Uuid
+  quantity              Int
+  buyer_note            String?
+  status                String    @default("pending")
+  seller_response_price Decimal?  @db.Decimal
+  seller_message        String?
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+  companies             companies @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products              products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                               String    @id @db.Uuid
+  company_id                       String    @db.Uuid
+  email                            String
+  role                             String    @default("staff")
+  name                             String
+  password_hash                    String?
+  orders_orders_approved_byTousers orders[]  @relation("orders_approved_byTousers")
+  orders_orders_created_byTousers  orders[]  @relation("orders_created_byTousers")
+  companies                        companies @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
