@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service.js'
 import { CreateProductDto } from './dto/create-product.dto.js'
 import { UpdateProductDto } from './dto/update-product.dto.js'
@@ -40,8 +40,10 @@ export class ProductsService {
     })
   }
 
-  async update(id: string, dto: UpdateProductDto) {
-    await this.findOne(id)
+  async update(id: string, dto: UpdateProductDto, ownerId: string) {
+    const product = await this.findOne(id)
+    if (product.seller_id !== ownerId) throw new ForbiddenException()
+
     const { price_tiers, ...rest } = dto
     const data: Prisma.productsUpdateInput = {
       ...rest,
@@ -52,8 +54,9 @@ export class ProductsService {
     return this.prisma.products.update({ where: { id }, data })
   }
 
-  async updateStatus(id: string, status: 'active' | 'draft') {
-    await this.findOne(id)
+  async updateStatus(id: string, status: 'active' | 'draft', ownerId: string) {
+    const product = await this.findOne(id)
+    if (product.seller_id !== ownerId) throw new ForbiddenException()
     return this.prisma.products.update({ where: { id }, data: { status } })
   }
 }
