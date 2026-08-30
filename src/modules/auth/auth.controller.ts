@@ -9,11 +9,19 @@ import { CurrentUser } from './decorators/current-user.decorator.js'
 import type { JwtPayload } from './strategies/jwt.strategy.js'
 
 const REFRESH_COOKIE = 'refresh_token'
-const COOKIE_OPTS = {
+const REFRESH_COOKIE_OPTS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
   maxAge: 7 * 24 * 60 * 60 * 1000,
+  path: '/',
+}
+
+const ACCESS_COOKIE_OPTS = {
+  httpOnly: false,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  maxAge: 15 * 60 * 1000,
   path: '/',
 }
 
@@ -27,7 +35,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Login — returns access token + sets refresh cookie' })
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.login(dto)
-    res.cookie(REFRESH_COOKIE, result.refresh_token, COOKIE_OPTS)
+    res.cookie(REFRESH_COOKIE, result.refresh_token, REFRESH_COOKIE_OPTS)
+    res.cookie('access_token', result.access_token, ACCESS_COOKIE_OPTS)
     return { access_token: result.access_token, user: result.user }
   }
 
@@ -35,7 +44,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Register new company + admin user' })
   async signup(@Body() dto: SignupDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.signup(dto)
-    res.cookie(REFRESH_COOKIE, result.refresh_token, COOKIE_OPTS)
+    res.cookie(REFRESH_COOKIE, result.refresh_token, REFRESH_COOKIE_OPTS)
+    res.cookie('access_token', result.access_token, ACCESS_COOKIE_OPTS)
     return { access_token: result.access_token, user: result.user }
   }
 
