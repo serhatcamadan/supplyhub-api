@@ -101,6 +101,17 @@ export class QuoteRequestsService {
     return normalizeQuoteRequest(raw)
   }
 
+  async sellerDecline(id: string, user: JwtPayload) {
+    const qr = await this.findOne(id, user)
+    if (qr.product.companies.id !== user.companyId) throw new ForbiddenException()
+    const raw = await this.prisma.quote_requests.update({
+      where: { id },
+      data: { status: 'declined' },
+      include: QUOTE_INCLUDE,
+    })
+    return normalizeQuoteRequest(raw)
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private assertAccess(qr: { buyer_id: string; product: { companies: { id: string } } }, user: JwtPayload) {
     const isBuyer = qr.buyer_id === user.companyId

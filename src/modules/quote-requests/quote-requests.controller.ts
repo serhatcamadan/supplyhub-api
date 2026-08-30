@@ -59,4 +59,11 @@ export class QuoteRequestsController {
   decline(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.service.updateStatus(id, 'declined', user)
   }
+
+  @Patch(':id/seller-decline')
+  @Roles('seller')
+  @ApiOperation({ summary: 'Seller declines quote request' })
+  sellerDecline(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.service.sellerDecline(id, user)
+  }
 }

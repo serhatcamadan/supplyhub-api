@@ -11,6 +11,7 @@ import { HealthModule } from './health/health.module.js'
 import { AuthModule } from './modules/auth/auth.module.js'
 import { QuoteRequestsModule } from './modules/quote-requests/quote-requests.module.js'
 import { OrdersModule } from './modules/orders/orders.module.js'
+import { TestModule } from './modules/test/test.module.js'
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { OrdersModule } from './modules/orders/orders.module.js'
     AuthModule,
     QuoteRequestsModule,
     OrdersModule,
+    TestModule,
   ],
   controllers: [AppController],
   providers: [
