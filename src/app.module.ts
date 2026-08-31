@@ -12,6 +12,8 @@ import { AuthModule } from './modules/auth/auth.module.js'
 import { QuoteRequestsModule } from './modules/quote-requests/quote-requests.module.js'
 import { OrdersModule } from './modules/orders/orders.module.js'
 import { TestModule } from './modules/test/test.module.js'
+import { CompaniesModule } from './modules/companies/companies.module.js'
+import { UsersModule } from './modules/users/users.module.js'
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { TestModule } from './modules/test/test.module.js'
     QuoteRequestsModule,
     OrdersModule,
     TestModule,
+    CompaniesModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
