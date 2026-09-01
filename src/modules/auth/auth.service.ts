@@ -1,9 +1,11 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common'
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import * as bcrypt from 'bcrypt'
 import { randomUUID } from 'crypto'
 import { PrismaService } from '../../prisma/prisma.service.js'
+import { OtpStore } from './otp.store.js'
+import { EmailService } from './email.service.js'
 import type { LoginDto } from './dto/login.dto.js'
 import type { SignupDto } from './dto/signup.dto.js'
 import type { JwtPayload } from './strategies/jwt.strategy.js'
@@ -14,6 +16,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly otpStore: OtpStore,
+    private readonly emailService: EmailService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -57,9 +61,29 @@ export class AuthService {
     }
   }
 
+  async sendVerification(email: string): Promise<void> {
+    const normalizedEmail = email.toLowerCase()
+
+    // Zaten bu email ile kayıtlı biri var mı?
+    const existing = await this.prisma.users.findFirst({ where: { email: normalizedEmail } })
+    if (existing) throw new ConflictException('Bu e-posta adresi zaten kullanımda')
+
+    // Rate limit: 60 saniye içinde aynı e-postaya tekrar kod gönderme
+    if (this.otpStore.isRateLimited(normalizedEmail)) {
+      throw new HttpException('Çok sık istek. Lütfen 60 saniye bekleyin.', HttpStatus.TOO_MANY_REQUESTS)
+    }
+
+    const code = this.otpStore.generate(normalizedEmail)
+    await this.emailService.sendVerificationCode(normalizedEmail, code)
+  }
+
   async signup(dto: SignupDto) {
+    // OTP doğrula
+    const valid = this.otpStore.consume(dto.email.toLowerCase(), dto.verificationCode)
+    if (!valid) throw new BadRequestException('Geçersiz veya süresi dolmuş doğrulama kodu')
+
     const existing = await this.prisma.users.findFirst({ where: { email: dto.email } })
-    if (existing) throw new ConflictException('Email already in use')
+    if (existing) throw new ConflictException('Bu e-posta adresi zaten kullanımda')
 
     const password_hash = await bcrypt.hash(dto.password, 12)
 

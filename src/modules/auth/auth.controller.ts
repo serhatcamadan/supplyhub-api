@@ -4,6 +4,7 @@ import type { Request, Response } from 'express'
 import { AuthService } from './auth.service.js'
 import { LoginDto } from './dto/login.dto.js'
 import { SignupDto } from './dto/signup.dto.js'
+import { SendVerificationDto } from './dto/send-verification.dto.js'
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js'
 import { CurrentUser } from './decorators/current-user.decorator.js'
 import type { JwtPayload } from './strategies/jwt.strategy.js'
@@ -38,6 +39,14 @@ export class AuthController {
     res.cookie(REFRESH_COOKIE, result.refresh_token, REFRESH_COOKIE_OPTS)
     res.cookie('access_token', result.access_token, ACCESS_COOKIE_OPTS)
     return { access_token: result.access_token, user: result.user }
+  }
+
+  @Post('send-verification')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'E-posta doğrulama kodu gönder' })
+  async sendVerification(@Body() dto: SendVerificationDto) {
+    await this.authService.sendVerification(dto.email)
+    return { ok: true }
   }
 
   @Post('signup')

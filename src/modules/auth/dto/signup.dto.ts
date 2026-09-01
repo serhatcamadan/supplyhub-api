@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsIn, MinLength } from 'class-validator'
+import { IsEmail, IsString, IsIn, MinLength, Length } from 'class-validator'
 import { ApiProperty } from '@nestjs/swagger'
 
 export class SignupDto {
@@ -24,4 +24,9 @@ export class SignupDto {
   @IsString()
   @MinLength(8)
   password: string
+
+  @ApiProperty({ example: '123456', description: '6 haneli e-posta doğrulama kodu' })
+  @IsString()
+  @Length(6, 6)
+  verificationCode: string
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { UnauthorizedException, ConflictException } from '@nestjs/common'
+import { UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common'
 import { AuthService } from './auth.service.js'
 
 // ── Mock helpers ───────────────────────────────────────────────────────────
@@ -41,27 +41,40 @@ function mockConfig(values: Record<string, string> = {}) {
   }
 }
 
+function mockOtpStore(consumeResult = true) {
+  return {
+    generate: vi.fn().mockReturnValue('123456'),
+    consume: vi.fn().mockReturnValue(consumeResult),
+    isRateLimited: vi.fn().mockReturnValue(false),
+  }
+}
+
+function mockEmailService() {
+  return {
+    sendVerificationCode: vi.fn().mockResolvedValue(undefined),
+  }
+}
+
 // ── login ──────────────────────────────────────────────────────────────────
 
 describe('AuthService — login', () => {
   it('kullanıcı bulunamadı → UnauthorizedException', async () => {
     const prisma = mockPrisma()
     prisma.users.findFirst.mockResolvedValue(null)
-    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any)
+    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any, mockOtpStore() as any, mockEmailService() as any)
 
     await expect(service.login({ email: 'ghost@test.com', password: '123' }))
       .rejects.toThrow(UnauthorizedException)
   })
 
   it('yanlış şifre → UnauthorizedException', async () => {
-    // bcrypt gerçek bir hash beklediğinden, geçersiz hash kullan
     const prisma = mockPrisma()
     prisma.users.findFirst.mockResolvedValue({
       id: 'user-1', email: 'ali@test.com', name: 'Ali', role: 'admin',
       company_id: 'comp-1', password_hash: 'invalid-hash',
       companies: { type: 'seller' },
     })
-    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any)
+    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any, mockOtpStore() as any, mockEmailService() as any)
 
     await expect(service.login({ email: 'ali@test.com', password: 'WrongPassword' }))
       .rejects.toThrow(UnauthorizedException)
@@ -69,15 +82,13 @@ describe('AuthService — login', () => {
 
   it('bcrypt hash yoksa auth_users_view çeker ve kaydet', async () => {
     const prisma = mockPrisma()
-    // password_hash null → geçiş dönemi yolu
     prisma.users.findFirst.mockResolvedValue({
       id: 'user-1', email: 'ali@test.com', name: 'Ali', role: 'admin',
       company_id: 'comp-1', password_hash: null,
       companies: { type: 'seller' },
     })
-    // auth_users_view boş → kimlik bilgisi yok
     prisma.$queryRaw.mockResolvedValue([])
-    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any)
+    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any, mockOtpStore() as any, mockEmailService() as any)
 
     await expect(service.login({ email: 'ali@test.com', password: 'anything' }))
       .rejects.toThrow(UnauthorizedException)
@@ -93,7 +104,7 @@ describe('AuthService — login', () => {
       company_id: 'comp-1', password_hash: hash,
       companies: { type: 'seller' },
     })
-    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any)
+    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any, mockOtpStore() as any, mockEmailService() as any)
     const result = await service.login({ email: 'ali@test.com', password: 'Demo1234!' })
 
     expect(result).toHaveProperty('access_token')
@@ -105,25 +116,43 @@ describe('AuthService — login', () => {
 // ── signup ─────────────────────────────────────────────────────────────────
 
 describe('AuthService — signup', () => {
+  it('geçersiz OTP → BadRequestException', async () => {
+    const service = new AuthService(
+      mockPrisma() as any, mockJwt() as any, mockConfig() as any,
+      mockOtpStore(false) as any, mockEmailService() as any,
+    )
+
+    await expect(service.signup({
+      email: 'test@test.com', password: 'Pass1234!', name: 'Test',
+      companyName: 'Co', companyType: 'buyer', verificationCode: '000000',
+    })).rejects.toThrow(BadRequestException)
+  })
+
   it('mevcut email → ConflictException', async () => {
     const prisma = mockPrisma()
     prisma.users.findFirst.mockResolvedValue({ id: 'existing' })
-    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any)
+    const service = new AuthService(
+      prisma as any, mockJwt() as any, mockConfig() as any,
+      mockOtpStore(true) as any, mockEmailService() as any,
+    )
 
     await expect(service.signup({
       email: 'taken@test.com', password: 'Pass1234!', name: 'Test',
-      companyName: 'Co', companyType: 'buyer',
+      companyName: 'Co', companyType: 'buyer', verificationCode: '123456',
     })).rejects.toThrow(ConflictException)
   })
 
   it('yeni kullanıcı → access_token + refresh_token döner', async () => {
     const prisma = mockPrisma()
     prisma.users.findFirst.mockResolvedValue(null)
-    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any)
+    const service = new AuthService(
+      prisma as any, mockJwt() as any, mockConfig() as any,
+      mockOtpStore(true) as any, mockEmailService() as any,
+    )
 
     const result = await service.signup({
       email: 'new@test.com', password: 'Pass1234!', name: 'New User',
-      companyName: 'New Co', companyType: 'buyer',
+      companyName: 'New Co', companyType: 'buyer', verificationCode: '123456',
     })
 
     expect(result).toHaveProperty('access_token')
@@ -138,13 +167,13 @@ describe('AuthService — refresh', () => {
   it('geçersiz token → UnauthorizedException', async () => {
     const jwt = mockJwt()
     jwt.verify.mockImplementation(() => { throw new Error('invalid') })
-    const service = new AuthService(mockPrisma() as any, jwt as any, mockConfig() as any)
+    const service = new AuthService(mockPrisma() as any, jwt as any, mockConfig() as any, mockOtpStore() as any, mockEmailService() as any)
 
     expect(() => service.refresh('bad.token')).toThrow(UnauthorizedException)
   })
 
   it('geçerli token → yeni access_token', () => {
-    const service = new AuthService(mockPrisma() as any, mockJwt() as any, mockConfig() as any)
+    const service = new AuthService(mockPrisma() as any, mockJwt() as any, mockConfig() as any, mockOtpStore() as any, mockEmailService() as any)
     const result = service.refresh('valid.refresh.token')
     expect(result).toHaveProperty('access_token')
   })
