@@ -89,6 +89,7 @@ model users {
   email                            String
   role                             String    @default("staff")
   name                             String
+  phone                            String?
   password_hash                    String?
   orders_orders_approved_byTousers orders[]  @relation("orders_approved_byTousers")
   orders_orders_created_byTousers  orders[]  @relation("orders_created_byTousers")

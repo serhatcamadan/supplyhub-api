@@ -10,6 +10,11 @@ export class UpdateUserDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  phone?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   @MinLength(8)
   password?: string
 }

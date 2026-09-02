@@ -120,17 +120,32 @@ export class AuthService {
     }
   }
 
-  refresh(token: string) {
+  async refresh(token: string) {
+    let payload: JwtPayload
     try {
-      const payload = this.jwt.verify<JwtPayload>(token, {
+      payload = this.jwt.verify<JwtPayload>(token, {
         secret: this.config.get<string>('JWT_REFRESH_SECRET'),
       })
-      const { iat, exp, ...rest } = payload as JwtPayload & { iat: number; exp: number }
-      void iat; void exp
-      return { access_token: this.signAccess(rest) }
     } catch {
       throw new UnauthorizedException('Invalid refresh token')
     }
+
+    // Fetch fresh user data from DB so profile updates are reflected immediately
+    const user = await this.prisma.users.findUnique({
+      where: { id: payload.sub },
+      include: { companies: true },
+    })
+    if (!user) throw new UnauthorizedException('User not found')
+
+    const freshPayload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      name: user.name,
+      companyId: user.company_id,
+      role: user.role,
+      companyType: user.companies.type,
+    }
+    return { access_token: this.signAccess(freshPayload) }
   }
 
   private signAccess(payload: JwtPayload) {
