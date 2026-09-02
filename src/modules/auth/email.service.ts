@@ -25,6 +25,9 @@ export class EmailService {
         user: this.config.get<string>('SMTP_USER'),
         pass: this.config.get<string>('SMTP_PASS'),
       },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 8000,
     })
 
     const from = this.config.get<string>('EMAIL_FROM') ?? 'SupplyHub <noreply@supplyhub.com>'
