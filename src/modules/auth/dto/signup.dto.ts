@@ -1,5 +1,5 @@
-import { IsEmail, IsString, IsIn, MinLength, Length } from 'class-validator'
-import { ApiProperty } from '@nestjs/swagger'
+import { IsEmail, IsString, IsIn, IsOptional, MinLength, Length } from 'class-validator'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class SignupDto {
   @ApiProperty({ example: 'Yeni Şirket A.Ş.' })
@@ -10,6 +10,11 @@ export class SignupDto {
   @ApiProperty({ enum: ['seller', 'buyer'] })
   @IsIn(['seller', 'buyer'])
   companyType: 'seller' | 'buyer'
+
+  @ApiPropertyOptional({ example: 'food' })
+  @IsOptional()
+  @IsString()
+  industry?: string
 
   @ApiProperty({ example: 'yeni@sirket.com' })
   @IsEmail()

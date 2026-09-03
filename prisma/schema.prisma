@@ -13,6 +13,7 @@ model companies {
   id                                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                               String
   type                               String
+  industry                           String?
   created_at                         DateTime         @default(now()) @db.Timestamptz(6)
   orders_orders_buyer_idTocompanies  orders[]         @relation("orders_buyer_idTocompanies")
   orders_orders_seller_idTocompanies orders[]         @relation("orders_seller_idTocompanies")

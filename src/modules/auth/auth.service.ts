@@ -89,7 +89,7 @@ export class AuthService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       const company = await tx.companies.create({
-        data: { name: dto.companyName, type: dto.companyType },
+        data: { name: dto.companyName, type: dto.companyType, industry: dto.industry ?? null },
       })
       const user = await tx.users.create({
         data: {
