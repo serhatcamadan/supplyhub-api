@@ -1,6 +1,8 @@
 import {
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Post,
   Patch,
   Param,
@@ -68,6 +70,17 @@ export class ProductsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.productsService.update(id, dto, user.companyId)
+  }
+
+  /** Seller: ürünü sil */
+  @Delete('seller/products/:id')
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('seller')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a product' })
+  remove(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.productsService.remove(id, user.companyId)
   }
 
   /** Seller: ürün durumunu değiştir (active/draft) */

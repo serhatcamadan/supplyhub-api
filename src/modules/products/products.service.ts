@@ -59,4 +59,10 @@ export class ProductsService {
     if (product.seller_id !== ownerId) throw new ForbiddenException()
     return this.prisma.products.update({ where: { id }, data: { status } })
   }
+
+  async remove(id: string, ownerId: string) {
+    const product = await this.findOne(id)
+    if (product.seller_id !== ownerId) throw new ForbiddenException()
+    await this.prisma.products.delete({ where: { id } })
+  }
 }
