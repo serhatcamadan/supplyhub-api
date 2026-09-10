@@ -47,4 +47,10 @@ export class CreateProductDto {
   @IsOptional()
   @IsIn(['active', 'draft'])
   status?: 'active' | 'draft'
+
+  @ApiPropertyOptional({ example: 100, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  stock_quantity?: number
 }

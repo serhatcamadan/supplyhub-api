@@ -75,6 +75,25 @@ export class AuthController {
     return { ok: true }
   }
 
+  @Post('forgot-password')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Şifre sıfırlama e-postası gönder' })
+  async forgotPassword(@Body('email') email: string) {
+    await this.authService.forgotPassword(email)
+    return { ok: true }
+  }
+
+  @Post('reset-password')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Token ile şifre sıfırla' })
+  async resetPassword(
+    @Body('token') token: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    await this.authService.resetPassword(token, newPassword)
+    return { ok: true }
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

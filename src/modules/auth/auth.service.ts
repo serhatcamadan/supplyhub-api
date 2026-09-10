@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt'
 import { randomUUID } from 'crypto'
 import { PrismaService } from '../../prisma/prisma.service.js'
 import { OtpStore } from './otp.store.js'
+import { ResetTokenStore } from './reset-token.store.js'
 import { EmailService } from './email.service.js'
 import type { LoginDto } from './dto/login.dto.js'
 import type { SignupDto } from './dto/signup.dto.js'
@@ -17,6 +18,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly otpStore: OtpStore,
+    private readonly resetTokenStore: ResetTokenStore,
     private readonly emailService: EmailService,
   ) {}
 
@@ -146,6 +148,29 @@ export class AuthService {
       companyType: user.companies.type,
     }
     return { access_token: this.signAccess(freshPayload) }
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const normalizedEmail = email.toLowerCase()
+    const user = await this.prisma.users.findFirst({ where: { email: normalizedEmail } })
+    // Kullanıcı yoksa sessizce dön — email varlığını açığa çıkarma
+    if (!user) return
+
+    const token = this.resetTokenStore.generate(normalizedEmail)
+    const frontendUrl = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000'
+    const resetLink = `${frontendUrl}/tr/reset-password?token=${token}`
+    await this.emailService.sendPasswordResetEmail(normalizedEmail, resetLink)
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const email = this.resetTokenStore.consume(token)
+    if (!email) throw new BadRequestException('Geçersiz veya süresi dolmuş bağlantı')
+
+    const user = await this.prisma.users.findFirst({ where: { email } })
+    if (!user) throw new BadRequestException('Kullanıcı bulunamadı')
+
+    const hash = await bcrypt.hash(newPassword, 12)
+    await this.prisma.users.update({ where: { id: user.id }, data: { password_hash: hash } })
   }
 
   private signAccess(payload: JwtPayload) {
