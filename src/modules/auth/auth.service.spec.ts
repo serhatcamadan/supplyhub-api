@@ -10,6 +10,7 @@ function mockPrisma(overrides: Record<string, unknown> = {}) {
   return {
     users: {
       findFirst: vi.fn().mockResolvedValue(null),
+      findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -177,12 +178,18 @@ describe('AuthService — refresh', () => {
     jwt.verify.mockImplementation(() => { throw new Error('invalid') })
     const service = new AuthService(mockPrisma() as any, jwt as any, mockConfig() as any, mockOtpStore() as any, mockResetTokenStore() as any, mockEmailService() as any)
 
-    expect(() => service.refresh('bad.token')).toThrow(UnauthorizedException)
+    await expect(service.refresh('bad.token')).rejects.toThrow(UnauthorizedException)
   })
 
-  it('geçerli token → yeni access_token', () => {
-    const service = new AuthService(mockPrisma() as any, mockJwt() as any, mockConfig() as any, mockOtpStore() as any, mockResetTokenStore() as any, mockEmailService() as any)
-    const result = service.refresh('valid.refresh.token')
+  it('geçerli token → yeni access_token', async () => {
+    const prisma = mockPrisma()
+    prisma.users.findUnique.mockResolvedValue({
+      id: 'user-1', email: 'test@test.com', name: 'Test', role: 'admin',
+      company_id: 'comp-1',
+      companies: { type: 'buyer' },
+    })
+    const service = new AuthService(prisma as any, mockJwt() as any, mockConfig() as any, mockOtpStore() as any, mockResetTokenStore() as any, mockEmailService() as any)
+    const result = await service.refresh('valid.refresh.token')
     expect(result).toHaveProperty('access_token')
   })
 })
