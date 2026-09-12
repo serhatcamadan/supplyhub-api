@@ -18,6 +18,10 @@ const buyerStaff: JwtPayload = {
   companyId: 'company-buyer', role: 'staff', companyType: 'buyer',
 }
 
+function mockNotifications() {
+  return { create: vi.fn().mockResolvedValue(undefined) }
+}
+
 function mockPrisma(overrides: Record<string, unknown> = {}) {
   return {
     orders: {
@@ -78,7 +82,7 @@ describe('OrdersService — fiyat hesaplama (getUnitPrice)', () => {
     const rawOrder = makeOrderRaw({ total: 1850, order_items: [{ id: 'i1', order_id: 'order-1', product_id: 'prod-1', quantity: 10, unit_price: 185, products: { id: 'prod-1', name: 'Organik Zeytinyağı', image_url: null } }] })
     prisma.orders.create.mockResolvedValue(rawOrder)
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     const result = await service.create({ sellerId: 'company-seller', items: [{ productId: 'prod-1', quantity: 10 }] }, buyerAdmin)
 
     expect(result.total).toBe(1850) // 10 × 185
@@ -91,7 +95,7 @@ describe('OrdersService — fiyat hesaplama (getUnitPrice)', () => {
     const rawOrder = makeOrderRaw({ total: 8250, order_items: [{ id: 'i1', order_id: 'order-1', product_id: 'prod-1', quantity: 50, unit_price: 165, products: { id: 'prod-1', name: 'Organik Zeytinyağı', image_url: null } }] })
     prisma.orders.create.mockResolvedValue(rawOrder)
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     const result = await service.create({ sellerId: 'company-seller', items: [{ productId: 'prod-1', quantity: 50 }] }, buyerAdmin)
 
     expect(result.total).toBe(8250) // 50 × 165
@@ -104,7 +108,7 @@ describe('OrdersService — fiyat hesaplama (getUnitPrice)', () => {
     const rawOrder = makeOrderRaw({ total: 29000, order_items: [] })
     prisma.orders.create.mockResolvedValue(rawOrder)
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     await service.create({ sellerId: 'company-seller', items: [{ productId: 'prod-1', quantity: 200 }] }, buyerAdmin)
 
     const createCall = prisma.orders.create.mock.calls[0][0]
@@ -117,7 +121,7 @@ describe('OrdersService — fiyat hesaplama (getUnitPrice)', () => {
     const prisma = mockPrisma()
     prisma.products.findMany.mockResolvedValue([product])
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     await expect(
       service.create({ sellerId: 'company-seller', items: [{ productId: 'prod-1', quantity: 5 }] }, buyerAdmin)
     ).rejects.toThrow(BadRequestException)
@@ -127,7 +131,7 @@ describe('OrdersService — fiyat hesaplama (getUnitPrice)', () => {
     const prisma = mockPrisma()
     prisma.products.findMany.mockResolvedValue([]) // boş
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     await expect(
       service.create({ sellerId: 'company-seller', items: [{ productId: 'nonexistent', quantity: 10 }] }, buyerAdmin)
     ).rejects.toThrow(NotFoundException)
@@ -143,7 +147,7 @@ describe('OrdersService — needs_approval (10.000 TRY eşiği)', () => {
     prisma.products.findMany.mockResolvedValue([product])
     prisma.orders.create.mockResolvedValue(makeOrderRaw({ needs_approval: false }))
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     await service.create({ sellerId: 'company-seller', items: [{ productId: 'prod-1', quantity: 10 }] }, buyerAdmin)
 
     const createCall = prisma.orders.create.mock.calls[0][0]
@@ -156,7 +160,7 @@ describe('OrdersService — needs_approval (10.000 TRY eşiği)', () => {
     prisma.products.findMany.mockResolvedValue([product])
     prisma.orders.create.mockResolvedValue(makeOrderRaw({ needs_approval: true }))
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     await service.create({ sellerId: 'company-seller', items: [{ productId: 'prod-1', quantity: 200 }] }, buyerAdmin)
 
     const createCall = prisma.orders.create.mock.calls[0][0]
@@ -172,7 +176,7 @@ describe('OrdersService — approve/reject RBAC', () => {
     const prisma = mockPrisma()
     prisma.orders.findUnique.mockResolvedValue(rawOrder)
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     await expect(service.approve('order-1', buyerStaff)).rejects.toThrow(ForbiddenException)
   })
 
@@ -181,7 +185,7 @@ describe('OrdersService — approve/reject RBAC', () => {
     const prisma = mockPrisma()
     prisma.orders.findUnique.mockResolvedValue(rawOrder)
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     await expect(service.approve('order-1', buyerAdmin)).rejects.toThrow(ForbiddenException)
   })
 
@@ -191,7 +195,7 @@ describe('OrdersService — approve/reject RBAC', () => {
     prisma.orders.findUnique.mockResolvedValue(makeOrderRaw())
     prisma.orders.update.mockResolvedValue(rawOrder)
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     const result = await service.updateStatus('order-1', 'confirmed', sellerUser)
     expect(result.status).toBe('confirmed')
   })
@@ -200,8 +204,43 @@ describe('OrdersService — approve/reject RBAC', () => {
     const prisma = mockPrisma()
     prisma.orders.findUnique.mockResolvedValue(makeOrderRaw())
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     await expect(service.updateStatus('order-1', 'confirmed', buyerAdmin)).rejects.toThrow(ForbiddenException)
+  })
+})
+
+// ── bildirim üretimi ───────────────────────────────────────────────────────
+
+describe('OrdersService — bildirim üretimi', () => {
+  it('sipariş oluşturunca satıcı şirkete order_created bildirimi gider', async () => {
+    const product = makeProduct()
+    const prisma = mockPrisma()
+    prisma.products.findMany.mockResolvedValue([product])
+    prisma.orders.create.mockResolvedValue(makeOrderRaw({ total: 1850 }))
+    const notifications = mockNotifications()
+
+    const service = new OrdersService(prisma as any, notifications as any)
+    await service.create({ sellerId: 'company-seller', items: [{ productId: 'prod-1', quantity: 10 }] }, buyerAdmin)
+
+    expect(notifications.create).toHaveBeenCalledWith(
+      'company-seller',
+      expect.objectContaining({ category: 'order', type: 'order_created' }),
+    )
+  })
+
+  it('sipariş durumu değişince alıcı şirkete order_status_changed bildirimi gider', async () => {
+    const prisma = mockPrisma()
+    prisma.orders.findUnique.mockResolvedValue(makeOrderRaw())
+    prisma.orders.update.mockResolvedValue(makeOrderRaw({ status: 'shipped' }))
+    const notifications = mockNotifications()
+
+    const service = new OrdersService(prisma as any, notifications as any)
+    await service.updateStatus('order-1', 'shipped', sellerUser)
+
+    expect(notifications.create).toHaveBeenCalledWith(
+      'company-buyer',
+      expect.objectContaining({ category: 'order', type: 'order_status_changed' }),
+    )
   })
 })
 
@@ -212,7 +251,7 @@ describe('OrdersService — findOne', () => {
     const prisma = mockPrisma()
     prisma.orders.findUnique.mockResolvedValue(null)
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     await expect(service.findOne('order-x', buyerAdmin)).rejects.toThrow(NotFoundException)
   })
 
@@ -223,7 +262,7 @@ describe('OrdersService — findOne', () => {
       seller_id: 'company-other-seller',
     }))
 
-    const service = new OrdersService(prisma as any)
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
     await expect(service.findOne('order-1', buyerAdmin)).rejects.toThrow(ForbiddenException)
   })
 })

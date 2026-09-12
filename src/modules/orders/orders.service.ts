@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service.js'
+import { NotificationsService } from '../notifications/notifications.service.js'
 import type { CreateOrderDto } from './dto/create-order.dto.js'
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
 import type { Prisma } from '@prisma/client'
@@ -70,7 +71,10 @@ function normalizeOrder(raw: any) {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async findAll(user: JwtPayload) {
     const where: Prisma.ordersWhereInput =
@@ -135,7 +139,16 @@ export class OrdersService {
       },
       include: ORDER_INCLUDE,
     })
-    return normalizeOrder(raw)
+    const order = normalizeOrder(raw)
+
+    await this.notifications.create(order.seller_id, {
+      category: 'order',
+      type: 'order_created',
+      data: { orderId: order.id, itemCount: order.items.length, total: order.total, buyerName: order.buyer.name },
+      action_href: '/seller/orders',
+    })
+
+    return order
   }
 
   async updateStatus(id: string, status: 'confirmed' | 'shipped' | 'delivered', user: JwtPayload) {
@@ -146,7 +159,16 @@ export class OrdersService {
       data: { status },
       include: ORDER_INCLUDE,
     })
-    return normalizeOrder(raw)
+    const updated = normalizeOrder(raw)
+
+    await this.notifications.create(updated.buyer_id, {
+      category: 'order',
+      type: 'order_status_changed',
+      data: { orderId: updated.id, status: updated.status },
+      action_href: '/buyer/orders',
+    })
+
+    return updated
   }
 
   async approve(id: string, user: JwtPayload) {

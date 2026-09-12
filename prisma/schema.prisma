@@ -20,6 +20,7 @@ model companies {
   products                           products[]
   quote_requests                     quote_requests[]
   users                              users[]
+  notifications                      notifications[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -82,6 +83,18 @@ model quote_requests {
   created_at            DateTime  @default(now()) @db.Timestamptz(6)
   companies             companies @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   products              products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model notifications {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id  String    @db.Uuid
+  category    String    @default("system")
+  type        String
+  data        Json      @default("{}")
+  action_href String?
+  read        Boolean   @default(false)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  companies   companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

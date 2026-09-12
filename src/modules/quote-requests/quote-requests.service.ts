@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service.js'
+import { NotificationsService } from '../notifications/notifications.service.js'
 import type { CreateQuoteRequestDto } from './dto/create-quote-request.dto.js'
 import type { RespondQuoteRequestDto } from './dto/respond-quote-request.dto.js'
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
@@ -34,7 +35,10 @@ function normalizeQuoteRequest(raw: any) {
 
 @Injectable()
 export class QuoteRequestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async findAll(user: JwtPayload) {
     const where =
@@ -72,7 +76,16 @@ export class QuoteRequestsService {
       },
       include: QUOTE_INCLUDE,
     })
-    return normalizeQuoteRequest(raw)
+    const qr = normalizeQuoteRequest(raw)
+
+    await this.notifications.create(qr.product.companies.id, {
+      category: 'quote',
+      type: 'quote_requested',
+      data: { quoteId: qr.id, productName: qr.product.name, buyerName: qr.buyer.name },
+      action_href: `/seller/quotes/${qr.id}`,
+    })
+
+    return qr
   }
 
   async respond(id: string, dto: RespondQuoteRequestDto, user: JwtPayload) {
@@ -87,7 +100,16 @@ export class QuoteRequestsService {
       },
       include: QUOTE_INCLUDE,
     })
-    return normalizeQuoteRequest(raw)
+    const updated = normalizeQuoteRequest(raw)
+
+    await this.notifications.create(updated.buyer_id, {
+      category: 'quote',
+      type: 'quote_responded',
+      data: { quoteId: updated.id, productName: updated.product.name },
+      action_href: '/buyer/quotes',
+    })
+
+    return updated
   }
 
   async updateStatus(id: string, status: 'accepted' | 'declined', user: JwtPayload) {

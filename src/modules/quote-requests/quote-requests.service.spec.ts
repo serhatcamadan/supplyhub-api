@@ -51,12 +51,16 @@ function mockPrisma() {
   }
 }
 
+function mockNotifications() {
+  return { create: vi.fn().mockResolvedValue(undefined) }
+}
+
 // ── findOne erişim kontrolü ────────────────────────────────────────────────
 
 describe('QuoteRequestsService — findOne', () => {
   it('bulunamayan teklif → NotFoundException', async () => {
     const prisma = mockPrisma()
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     await expect(service.findOne('qr-x', buyerUser)).rejects.toThrow(NotFoundException)
   })
@@ -64,7 +68,7 @@ describe('QuoteRequestsService — findOne', () => {
   it('ilgili buyer erişebilir', async () => {
     const prisma = mockPrisma()
     prisma.quote_requests.findUnique.mockResolvedValue(makeRawQR())
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     const result = await service.findOne('qr-1', buyerUser)
     expect(result.id).toBe('qr-1')
@@ -73,7 +77,7 @@ describe('QuoteRequestsService — findOne', () => {
   it('satıcı erişebilir', async () => {
     const prisma = mockPrisma()
     prisma.quote_requests.findUnique.mockResolvedValue(makeRawQR())
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     const result = await service.findOne('qr-1', sellerUser)
     expect(result.id).toBe('qr-1')
@@ -82,7 +86,7 @@ describe('QuoteRequestsService — findOne', () => {
   it('ilgisiz şirket → ForbiddenException', async () => {
     const prisma = mockPrisma()
     prisma.quote_requests.findUnique.mockResolvedValue(makeRawQR())
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     await expect(service.findOne('qr-1', otherUser)).rejects.toThrow(ForbiddenException)
   })
@@ -97,7 +101,7 @@ describe('QuoteRequestsService — respond', () => {
     const prisma = mockPrisma()
     prisma.quote_requests.findUnique.mockResolvedValue(rawQR)
     prisma.quote_requests.update.mockResolvedValue(respondedRaw)
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     const result = await service.respond('qr-1', { seller_response_price: 170, seller_message: 'Uygun fiyat.' }, sellerUser)
     expect(result.status).toBe('responded')
@@ -107,7 +111,7 @@ describe('QuoteRequestsService — respond', () => {
   it('buyer respond → ForbiddenException', async () => {
     const prisma = mockPrisma()
     prisma.quote_requests.findUnique.mockResolvedValue(makeRawQR())
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     await expect(
       service.respond('qr-1', { seller_response_price: 170 }, buyerUser)
@@ -124,7 +128,7 @@ describe('QuoteRequestsService — sellerDecline', () => {
     const prisma = mockPrisma()
     prisma.quote_requests.findUnique.mockResolvedValue(rawQR)
     prisma.quote_requests.update.mockResolvedValue(declinedRaw)
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     const result = await service.sellerDecline('qr-1', sellerUser)
     expect(result.status).toBe('declined')
@@ -133,7 +137,7 @@ describe('QuoteRequestsService — sellerDecline', () => {
   it('buyer sellerDecline → ForbiddenException', async () => {
     const prisma = mockPrisma()
     prisma.quote_requests.findUnique.mockResolvedValue(makeRawQR())
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     await expect(service.sellerDecline('qr-1', buyerUser)).rejects.toThrow(ForbiddenException)
   })
@@ -146,13 +150,47 @@ describe('QuoteRequestsService — create', () => {
     const rawQR = makeRawQR()
     const prisma = mockPrisma()
     prisma.quote_requests.create.mockResolvedValue(rawQR)
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     await service.create({ productId: 'prod-1', quantity: 100 }, buyerUser)
 
     const createCall = prisma.quote_requests.create.mock.calls[0][0]
     expect(createCall.data.buyer_id).toBe('company-buyer')
     expect(createCall.data.status).toBe('pending')
+  })
+
+  it('teklif oluşturunca satıcı şirkete quote_requested bildirimi gider', async () => {
+    const prisma = mockPrisma()
+    prisma.quote_requests.create.mockResolvedValue(makeRawQR())
+    const notifications = mockNotifications()
+    const service = new QuoteRequestsService(prisma as any, notifications as any)
+
+    await service.create({ productId: 'prod-1', quantity: 100 }, buyerUser)
+
+    expect(notifications.create).toHaveBeenCalledWith(
+      'company-seller',
+      expect.objectContaining({ category: 'quote', type: 'quote_requested' }),
+    )
+  })
+})
+
+// ── bildirim üretimi (respond) ───────────────────────────────────────────
+
+describe('QuoteRequestsService — respond bildirim üretimi', () => {
+  it('teklif yanıtlanınca alıcı şirkete quote_responded bildirimi gider', async () => {
+    const rawQR = makeRawQR()
+    const prisma = mockPrisma()
+    prisma.quote_requests.findUnique.mockResolvedValue(rawQR)
+    prisma.quote_requests.update.mockResolvedValue({ ...rawQR, status: 'responded', seller_response_price: 170 })
+    const notifications = mockNotifications()
+    const service = new QuoteRequestsService(prisma as any, notifications as any)
+
+    await service.respond('qr-1', { seller_response_price: 170 }, sellerUser)
+
+    expect(notifications.create).toHaveBeenCalledWith(
+      'company-buyer',
+      expect.objectContaining({ category: 'quote', type: 'quote_responded' }),
+    )
   })
 })
 
@@ -165,7 +203,7 @@ describe('QuoteRequestsService — updateStatus', () => {
     const prisma = mockPrisma()
     prisma.quote_requests.findUnique.mockResolvedValue(rawQR)
     prisma.quote_requests.update.mockResolvedValue(acceptedRaw)
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     const result = await service.updateStatus('qr-1', 'accepted', buyerUser)
     expect(result.status).toBe('accepted')
@@ -174,7 +212,7 @@ describe('QuoteRequestsService — updateStatus', () => {
   it('seller updateStatus → ForbiddenException (buyer işlemi)', async () => {
     const prisma = mockPrisma()
     prisma.quote_requests.findUnique.mockResolvedValue(makeRawQR())
-    const service = new QuoteRequestsService(prisma as any)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
 
     await expect(service.updateStatus('qr-1', 'accepted', sellerUser)).rejects.toThrow(ForbiddenException)
   })
