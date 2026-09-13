@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { QuoteRequestsService } from './quote-requests.service.js'
 import { CreateQuoteRequestDto } from './dto/create-quote-request.dto.js'
 import { RespondQuoteRequestDto } from './dto/respond-quote-request.dto.js'
+import { SaveDraftQuoteRequestDto } from './dto/save-draft-quote-request.dto.js'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js'
 import { RolesGuard } from '../../common/guards/roles.guard.js'
 import { Roles } from '../../common/decorators/roles.decorator.js'
@@ -44,6 +45,17 @@ export class QuoteRequestsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.service.respond(id, dto, user)
+  }
+
+  @Patch(':id/draft')
+  @Roles('seller')
+  @ApiOperation({ summary: 'Seller saves a private draft response (no status change, no buyer notification)' })
+  saveDraft(
+    @Param('id') id: string,
+    @Body() dto: SaveDraftQuoteRequestDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.saveDraft(id, dto, user)
   }
 
   @Patch(':id/accept')

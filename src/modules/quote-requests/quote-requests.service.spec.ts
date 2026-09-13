@@ -119,6 +119,51 @@ describe('QuoteRequestsService — respond', () => {
   })
 })
 
+// ── saveDraft ─────────────────────────────────────────────────────────────
+
+describe('QuoteRequestsService — saveDraft', () => {
+  it('doğru seller taslak kaydedebilir — status değişmez, bildirim gitmez', async () => {
+    const rawQR = makeRawQR()
+    const draftRaw = { ...rawQR, seller_response_price: 150, seller_message: 'Taslak not.' }
+    const prisma = mockPrisma()
+    prisma.quote_requests.findUnique.mockResolvedValue(rawQR)
+    prisma.quote_requests.update.mockResolvedValue(draftRaw)
+    const notifications = mockNotifications()
+    const service = new QuoteRequestsService(prisma as any, notifications as any)
+
+    const result = await service.saveDraft('qr-1', { seller_response_price: 150, seller_message: 'Taslak not.' }, sellerUser)
+
+    expect(result.status).toBe('pending')
+    expect(result.seller_response_price).toBe(150)
+    expect(prisma.quote_requests.update.mock.calls[0][0].data.status).toBeUndefined()
+    expect(notifications.create).not.toHaveBeenCalled()
+  })
+
+  it('buyer saveDraft → ForbiddenException', async () => {
+    const prisma = mockPrisma()
+    prisma.quote_requests.findUnique.mockResolvedValue(makeRawQR())
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
+
+    await expect(
+      service.saveDraft('qr-1', { seller_response_price: 150 }, buyerUser)
+    ).rejects.toThrow(ForbiddenException)
+  })
+
+  it('sadece verilen alanlar güncellenir (partial update)', async () => {
+    const rawQR = makeRawQR()
+    const prisma = mockPrisma()
+    prisma.quote_requests.findUnique.mockResolvedValue(rawQR)
+    prisma.quote_requests.update.mockResolvedValue(rawQR)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
+
+    await service.saveDraft('qr-1', { seller_message: 'Sadece mesaj.' }, sellerUser)
+
+    const updateData = prisma.quote_requests.update.mock.calls[0][0].data
+    expect(updateData.seller_message).toBe('Sadece mesaj.')
+    expect(updateData.seller_response_price).toBeUndefined()
+  })
+})
+
 // ── sellerDecline ─────────────────────────────────────────────────────────
 
 describe('QuoteRequestsService — sellerDecline', () => {

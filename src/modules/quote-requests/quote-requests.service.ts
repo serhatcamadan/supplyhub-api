@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service.js'
 import { NotificationsService } from '../notifications/notifications.service.js'
 import type { CreateQuoteRequestDto } from './dto/create-quote-request.dto.js'
 import type { RespondQuoteRequestDto } from './dto/respond-quote-request.dto.js'
+import type { SaveDraftQuoteRequestDto } from './dto/save-draft-quote-request.dto.js'
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
 
 const QUOTE_INCLUDE = {
@@ -112,6 +113,21 @@ export class QuoteRequestsService {
     })
 
     return updated
+  }
+
+  /** Saves a private draft response — no status change, no buyer notification. */
+  async saveDraft(id: string, dto: SaveDraftQuoteRequestDto, user: JwtPayload) {
+    const qr = await this.findOne(id, user)
+    if (qr.product.companies.id !== user.companyId) throw new ForbiddenException()
+    const raw = await this.prisma.quote_requests.update({
+      where: { id },
+      data: {
+        ...(dto.seller_response_price !== undefined && { seller_response_price: dto.seller_response_price }),
+        ...(dto.seller_message !== undefined && { seller_message: dto.seller_message }),
+      },
+      include: QUOTE_INCLUDE,
+    })
+    return normalizeQuoteRequest(raw)
   }
 
   async updateStatus(id: string, status: 'accepted' | 'declined', user: JwtPayload) {
