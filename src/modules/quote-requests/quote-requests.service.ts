@@ -27,6 +27,7 @@ function normalizeQuoteRequest(raw: any) {
       ? Number(raw.seller_response_price)
       : null,
     seller_message: raw.seller_message,
+    attachment_urls: raw.attachment_urls ?? [],
     created_at: raw.created_at,
     buyer: raw.companies,
     product: raw.products,
@@ -73,6 +74,7 @@ export class QuoteRequestsService {
         quantity: dto.quantity,
         buyer_note: dto.buyer_note ?? null,
         status: 'pending',
+        attachment_urls: dto.attachment_urls ?? [],
       },
       include: QUOTE_INCLUDE,
     })

@@ -159,6 +159,29 @@ describe('QuoteRequestsService — create', () => {
     expect(createCall.data.status).toBe('pending')
   })
 
+  it('attachment_urls verilmezse boş dizi olarak kaydedilir', async () => {
+    const prisma = mockPrisma()
+    prisma.quote_requests.create.mockResolvedValue(makeRawQR())
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
+
+    await service.create({ productId: 'prod-1', quantity: 100 }, buyerUser)
+
+    expect(prisma.quote_requests.create.mock.calls[0][0].data.attachment_urls).toEqual([])
+  })
+
+  it('attachment_urls verilirse olduğu gibi kaydedilir', async () => {
+    const prisma = mockPrisma()
+    prisma.quote_requests.create.mockResolvedValue(makeRawQR())
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
+
+    await service.create(
+      { productId: 'prod-1', quantity: 100, attachment_urls: ['https://x/a.pdf'] },
+      buyerUser,
+    )
+
+    expect(prisma.quote_requests.create.mock.calls[0][0].data.attachment_urls).toEqual(['https://x/a.pdf'])
+  })
+
   it('teklif oluşturunca satıcı şirkete quote_requested bildirimi gider', async () => {
     const prisma = mockPrisma()
     prisma.quote_requests.create.mockResolvedValue(makeRawQR())

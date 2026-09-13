@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsOptional, Min } from 'class-validator'
+import { IsString, IsInt, IsOptional, IsArray, Min } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class CreateQuoteRequestDto {
@@ -15,4 +15,10 @@ export class CreateQuoteRequestDto {
   @IsOptional()
   @IsString()
   buyer_note?: string
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  attachment_urls?: string[]
 }
