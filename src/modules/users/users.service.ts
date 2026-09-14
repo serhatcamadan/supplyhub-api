@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, UnauthorizedException } from '@nestjs/common'
 import * as bcrypt from 'bcrypt'
 import { PrismaService } from '../../prisma/prisma.service.js'
+import { resolvePasswordHash } from '../../common/password-hash.util.js'
 import { UpdateUserDto } from './users.dto.js'
 
 const USER_SELECT = { id: true, email: true, name: true, phone: true, role: true, company_id: true } as const
@@ -18,9 +19,20 @@ export class UsersService {
 
   async updateMe(userId: string, dto: UpdateUserDto) {
     const data: Record<string, unknown> = {}
-    if (dto.name !== undefined)     data.name = dto.name
-    if (dto.phone !== undefined)    data.phone = dto.phone
-    if (dto.password)               data.password_hash = await bcrypt.hash(dto.password, 10)
+    if (dto.name !== undefined)  data.name = dto.name
+    if (dto.phone !== undefined) data.phone = dto.phone
+
+    if (dto.password) {
+      const user = await this.prisma.users.findUniqueOrThrow({
+        where: { id: userId },
+        select: { password_hash: true },
+      })
+      const hash = await resolvePasswordHash(this.prisma, userId, user.password_hash)
+      const valid = hash && dto.currentPassword && (await bcrypt.compare(dto.currentPassword, hash))
+      if (!valid) throw new UnauthorizedException('Current password is incorrect')
+
+      data.password_hash = await bcrypt.hash(dto.password, 12)
+    }
 
     return this.prisma.users.update({
       where: { id: userId },

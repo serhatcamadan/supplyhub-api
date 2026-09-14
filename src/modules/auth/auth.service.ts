@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config'
 import * as bcrypt from 'bcrypt'
 import { randomUUID } from 'crypto'
 import { PrismaService } from '../../prisma/prisma.service.js'
+import { resolvePasswordHash } from '../../common/password-hash.util.js'
 import { OtpStore } from './otp.store.js'
 import { ResetTokenStore } from './reset-token.store.js'
 import { EmailService } from './email.service.js'
@@ -29,20 +30,8 @@ export class AuthService {
     })
     if (!user) throw new UnauthorizedException('Invalid credentials')
 
-    let hash = user.password_hash
-
-    // Geçiş dönemi: hash yoksa auth_users_view'dan çek ve kaydet
-    if (!hash) {
-      const view = await this.prisma.$queryRaw<{ encrypted_password: string }[]>`
-        SELECT encrypted_password FROM auth_users_view WHERE id = ${user.id}::uuid
-      `
-      if (!view[0]?.encrypted_password) throw new UnauthorizedException('Invalid credentials')
-      hash = view[0].encrypted_password
-      await this.prisma.users.update({
-        where: { id: user.id },
-        data: { password_hash: hash },
-      })
-    }
+    const hash = await resolvePasswordHash(this.prisma, user.id, user.password_hash)
+    if (!hash) throw new UnauthorizedException('Invalid credentials')
 
     const valid = await bcrypt.compare(dto.password, hash)
     if (!valid) throw new UnauthorizedException('Invalid credentials')

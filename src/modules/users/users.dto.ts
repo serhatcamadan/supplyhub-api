@@ -17,4 +17,9 @@ export class UpdateUserDto {
   @IsString()
   @MinLength(8)
   password?: string
+
+  @ApiPropertyOptional({ description: 'Required when setting a new password' })
+  @IsOptional()
+  @IsString()
+  currentPassword?: string
 }
