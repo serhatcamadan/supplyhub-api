@@ -108,6 +108,31 @@ describe('QuoteRequestsService — respond', () => {
     expect(result.seller_response_price).toBe(170)
   })
 
+  it('lead_time, valid_until ve volume_discount kaydedilir', async () => {
+    const rawQR = makeRawQR()
+    const prisma = mockPrisma()
+    prisma.quote_requests.findUnique.mockResolvedValue(rawQR)
+    prisma.quote_requests.update.mockResolvedValue({
+      ...rawQR,
+      status: 'responded',
+      lead_time: '14-21',
+      valid_until: new Date('2026-12-31'),
+      volume_discount: true,
+    })
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
+
+    await service.respond(
+      'qr-1',
+      { seller_response_price: 170, lead_time: '14-21', valid_until: '2026-12-31', volume_discount: true },
+      sellerUser,
+    )
+
+    const updateData = prisma.quote_requests.update.mock.calls[0][0].data
+    expect(updateData.lead_time).toBe('14-21')
+    expect(updateData.valid_until).toEqual(new Date('2026-12-31'))
+    expect(updateData.volume_discount).toBe(true)
+  })
+
   it('buyer respond → ForbiddenException', async () => {
     const prisma = mockPrisma()
     prisma.quote_requests.findUnique.mockResolvedValue(makeRawQR())
@@ -161,6 +186,25 @@ describe('QuoteRequestsService — saveDraft', () => {
     const updateData = prisma.quote_requests.update.mock.calls[0][0].data
     expect(updateData.seller_message).toBe('Sadece mesaj.')
     expect(updateData.seller_response_price).toBeUndefined()
+  })
+
+  it('lead_time, valid_until ve volume_discount taslakta da kaydedilir', async () => {
+    const rawQR = makeRawQR()
+    const prisma = mockPrisma()
+    prisma.quote_requests.findUnique.mockResolvedValue(rawQR)
+    prisma.quote_requests.update.mockResolvedValue(rawQR)
+    const service = new QuoteRequestsService(prisma as any, mockNotifications() as any)
+
+    await service.saveDraft(
+      'qr-1',
+      { lead_time: '7-14', valid_until: '2026-11-01', volume_discount: true },
+      sellerUser,
+    )
+
+    const updateData = prisma.quote_requests.update.mock.calls[0][0].data
+    expect(updateData.lead_time).toBe('7-14')
+    expect(updateData.valid_until).toEqual(new Date('2026-11-01'))
+    expect(updateData.volume_discount).toBe(true)
   })
 })
 

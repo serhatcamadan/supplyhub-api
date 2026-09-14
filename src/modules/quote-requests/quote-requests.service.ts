@@ -28,6 +28,9 @@ function normalizeQuoteRequest(raw: any) {
       ? Number(raw.seller_response_price)
       : null,
     seller_message: raw.seller_message,
+    lead_time: raw.lead_time ?? null,
+    valid_until: raw.valid_until ?? null,
+    volume_discount: raw.volume_discount ?? false,
     attachment_urls: raw.attachment_urls ?? [],
     created_at: raw.created_at,
     buyer: raw.companies,
@@ -99,6 +102,9 @@ export class QuoteRequestsService {
       data: {
         seller_response_price: dto.seller_response_price,
         seller_message: dto.seller_message ?? null,
+        lead_time: dto.lead_time ?? null,
+        valid_until: dto.valid_until ? new Date(dto.valid_until) : null,
+        volume_discount: dto.volume_discount ?? false,
         status: 'responded',
       },
       include: QUOTE_INCLUDE,
@@ -124,6 +130,9 @@ export class QuoteRequestsService {
       data: {
         ...(dto.seller_response_price !== undefined && { seller_response_price: dto.seller_response_price }),
         ...(dto.seller_message !== undefined && { seller_message: dto.seller_message }),
+        ...(dto.lead_time !== undefined && { lead_time: dto.lead_time }),
+        ...(dto.valid_until !== undefined && { valid_until: dto.valid_until ? new Date(dto.valid_until) : null }),
+        ...(dto.volume_discount !== undefined && { volume_discount: dto.volume_discount }),
       },
       include: QUOTE_INCLUDE,
     })
