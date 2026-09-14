@@ -64,6 +64,8 @@ model products {
   image_url      String?
   status         String           @default("draft")
   stock_quantity Int              @default(0)
+  weight         Float?
+  lead_time_days Int?
   created_at     DateTime         @default(now()) @db.Timestamptz(6)
   order_items    order_items[]
   companies      companies        @relation(fields: [seller_id], references: [id], onDelete: Cascade, onUpdate: NoAction)

@@ -1,6 +1,7 @@
 import {
   IsString,
   IsInt,
+  IsNumber,
   IsArray,
   IsOptional,
   IsIn,
@@ -53,4 +54,16 @@ export class CreateProductDto {
   @IsInt()
   @Min(0)
   stock_quantity?: number
+
+  @ApiPropertyOptional({ example: 2.5, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  weight?: number | null
+
+  @ApiPropertyOptional({ example: 14, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  lead_time_days?: number | null
 }
