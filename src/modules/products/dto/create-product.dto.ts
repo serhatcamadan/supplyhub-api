@@ -44,6 +44,12 @@ export class CreateProductDto {
   @IsString()
   image_url?: string
 
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[]
+
   @ApiPropertyOptional({ enum: ['active', 'draft'], default: 'draft' })
   @IsOptional()
   @IsIn(['active', 'draft'])

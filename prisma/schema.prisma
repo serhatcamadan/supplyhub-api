@@ -62,6 +62,7 @@ model products {
   min_order_qty  Int              @default(1)
   price_tiers    Json             @default("[]")
   image_url      String?
+  images         String[]         @default([])
   status         String           @default("draft")
   stock_quantity Int              @default(0)
   weight         Float?
