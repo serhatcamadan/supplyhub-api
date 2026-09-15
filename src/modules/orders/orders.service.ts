@@ -38,7 +38,7 @@ const ORDER_INCLUDE = {
   },
   companies_orders_buyer_idTocompanies: { select: { id: true, name: true, type: true } },
   companies_orders_seller_idTocompanies: { select: { id: true, name: true, type: true } },
-  users_orders_created_byTousers: { select: { id: true, name: true, role: true } },
+  users_orders_created_byTousers: { select: { id: true, name: true, role: true, email: true } },
   users_orders_approved_byTousers: { select: { id: true, name: true } },
 } as const
 
