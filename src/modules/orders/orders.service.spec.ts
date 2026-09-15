@@ -23,7 +23,7 @@ function mockNotifications() {
 }
 
 function mockPrisma(overrides: Record<string, unknown> = {}) {
-  return {
+  const prisma: any = {
     orders: {
       findMany: vi.fn().mockResolvedValue([]),
       findUnique: vi.fn().mockResolvedValue(null),
@@ -33,9 +33,12 @@ function mockPrisma(overrides: Record<string, unknown> = {}) {
     },
     products: {
       findMany: vi.fn().mockResolvedValue([]),
+      update: vi.fn(),
     },
     ...overrides,
   }
+  prisma.$transaction = vi.fn().mockImplementation((cb: any) => cb(prisma))
+  return prisma
 }
 
 function makeProduct(overrides = {}) {
@@ -43,6 +46,7 @@ function makeProduct(overrides = {}) {
     id: 'prod-1',
     seller_id: 'company-seller',
     name: 'Organik Zeytinyağı',
+    stock_quantity: 1000,
     price_tiers: [
       { min_qty: 10, max_qty: 49,   price: 185 },
       { min_qty: 50, max_qty: 199,  price: 165 },
@@ -135,6 +139,59 @@ describe('OrdersService — fiyat hesaplama (getUnitPrice)', () => {
     await expect(
       service.create({ sellerId: 'company-seller', items: [{ productId: 'nonexistent', quantity: 10 }] }, buyerAdmin)
     ).rejects.toThrow(NotFoundException)
+  })
+})
+
+// ── stok düşürme/geri yükleme ──────────────────────────────────────────────
+
+describe('OrdersService — stok takibi', () => {
+  it('sipariş oluşunca ürünün stoğu sipariş miktarı kadar düşer', async () => {
+    const product = makeProduct({ stock_quantity: 100 })
+    const prisma = mockPrisma()
+    prisma.products.findMany.mockResolvedValue([product])
+    prisma.orders.create.mockResolvedValue(makeOrderRaw({ total: 1850 }))
+
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
+    await service.create({ sellerId: 'company-seller', items: [{ productId: 'prod-1', quantity: 10 }] }, buyerAdmin)
+
+    expect(prisma.products.update).toHaveBeenCalledWith({
+      where: { id: 'prod-1' },
+      data: { stock_quantity: { decrement: 10 } },
+    })
+  })
+
+  it('istenen miktar mevcut stoktan fazlaysa → BadRequestException, sipariş oluşturulmaz', async () => {
+    const product = makeProduct({ stock_quantity: 5 })
+    const prisma = mockPrisma()
+    prisma.products.findMany.mockResolvedValue([product])
+
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
+    await expect(
+      service.create({ sellerId: 'company-seller', items: [{ productId: 'prod-1', quantity: 10 }] }, buyerAdmin)
+    ).rejects.toThrow(BadRequestException)
+
+    expect(prisma.products.update).not.toHaveBeenCalled()
+    expect(prisma.orders.create).not.toHaveBeenCalled()
+  })
+
+  it('sipariş reddedilince ürünün stoğu sipariş miktarı kadar geri yüklenir', async () => {
+    const rawOrder = makeOrderRaw({
+      order_items: [
+        { id: 'i1', order_id: 'order-1', product_id: 'prod-1', quantity: 10, unit_price: 185, products: { id: 'prod-1', name: 'Organik Zeytinyağı', image_url: null } },
+      ],
+    })
+    const prisma = mockPrisma()
+    prisma.orders.findUnique.mockResolvedValue(rawOrder)
+    prisma.orders.delete.mockResolvedValue(rawOrder)
+
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
+    await service.reject('order-1', buyerAdmin)
+
+    expect(prisma.products.update).toHaveBeenCalledWith({
+      where: { id: 'prod-1' },
+      data: { stock_quantity: { increment: 10 } },
+    })
+    expect(prisma.orders.delete).toHaveBeenCalledWith({ where: { id: 'order-1' } })
   })
 })
 

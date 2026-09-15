@@ -102,42 +102,58 @@ export class OrdersService {
 
   async create(dto: CreateOrderDto, user: JwtPayload) {
     const productIds = dto.items.map((i) => i.productId)
-    const products = await this.prisma.products.findMany({ where: { id: { in: productIds } } })
-    const productMap = new Map(products.map((p) => [p.id, p]))
 
-    let total = 0
-    const itemsData = dto.items.map((item) => {
-      const product = productMap.get(item.productId)
-      if (!product) throw new NotFoundException(`Product ${item.productId} not found`)
+    const raw = await this.prisma.$transaction(async (tx) => {
+      const products = await tx.products.findMany({ where: { id: { in: productIds } } })
+      const productMap = new Map(products.map((p) => [p.id, p]))
 
-      const tiers = product.price_tiers as unknown as PriceTier[]
-      const unitPrice = getUnitPrice(item.quantity, tiers)
-      if (unitPrice === null) {
-        throw new BadRequestException(
-          `Quantity ${item.quantity} is below minimum for product ${product.name}`,
-        )
+      let total = 0
+      const itemsData = dto.items.map((item) => {
+        const product = productMap.get(item.productId)
+        if (!product) throw new NotFoundException(`Product ${item.productId} not found`)
+
+        if (item.quantity > product.stock_quantity) {
+          throw new BadRequestException(
+            `Insufficient stock for ${product.name}: requested ${item.quantity}, available ${product.stock_quantity}`,
+          )
+        }
+
+        const tiers = product.price_tiers as unknown as PriceTier[]
+        const unitPrice = getUnitPrice(item.quantity, tiers)
+        if (unitPrice === null) {
+          throw new BadRequestException(
+            `Quantity ${item.quantity} is below minimum for product ${product.name}`,
+          )
+        }
+        total += unitPrice * item.quantity
+        return { productId: item.productId, quantity: item.quantity, unitPrice }
+      })
+
+      for (const item of itemsData) {
+        await tx.products.update({
+          where: { id: item.productId },
+          data: { stock_quantity: { decrement: item.quantity } },
+        })
       }
-      total += unitPrice * item.quantity
-      return { productId: item.productId, quantity: item.quantity, unitPrice }
-    })
 
-    const raw = await this.prisma.orders.create({
-      data: {
-        buyer_id: user.companyId,
-        seller_id: dto.sellerId,
-        created_by: user.sub,
-        total,
-        needs_approval: total > SPENDING_LIMIT,
-        status: 'pending',
-        order_items: {
-          create: itemsData.map((i) => ({
-            product_id: i.productId,
-            quantity: i.quantity,
-            unit_price: i.unitPrice,
-          })),
+      return tx.orders.create({
+        data: {
+          buyer_id: user.companyId,
+          seller_id: dto.sellerId,
+          created_by: user.sub,
+          total,
+          needs_approval: total > SPENDING_LIMIT,
+          status: 'pending',
+          order_items: {
+            create: itemsData.map((i) => ({
+              product_id: i.productId,
+              quantity: i.quantity,
+              unit_price: i.unitPrice,
+            })),
+          },
         },
-      },
-      include: ORDER_INCLUDE,
+        include: ORDER_INCLUDE,
+      })
     })
     const order = normalizeOrder(raw)
 
@@ -187,6 +203,15 @@ export class OrdersService {
     const order = await this.findOne(id, user)
     if (order.buyer_id !== user.companyId) throw new ForbiddenException()
     if (user.role !== 'admin') throw new ForbiddenException()
-    return this.prisma.orders.delete({ where: { id } })
+
+    return this.prisma.$transaction(async (tx) => {
+      for (const item of order.items) {
+        await tx.products.update({
+          where: { id: item.product_id },
+          data: { stock_quantity: { increment: item.quantity } },
+        })
+      }
+      return tx.orders.delete({ where: { id } })
+    })
   }
 }
