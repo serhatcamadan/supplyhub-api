@@ -15,6 +15,7 @@ import { TestModule } from './modules/test/test.module.js'
 import { CompaniesModule } from './modules/companies/companies.module.js'
 import { UsersModule } from './modules/users/users.module.js'
 import { NotificationsModule } from './modules/notifications/notifications.module.js'
+import { ReviewsModule } from './modules/reviews/reviews.module.js'
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     CompaniesModule,
     UsersModule,
     NotificationsModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [

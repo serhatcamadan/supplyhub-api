@@ -40,6 +40,7 @@ const ORDER_INCLUDE = {
   companies_orders_seller_idTocompanies: { select: { id: true, name: true, type: true } },
   users_orders_created_byTousers: { select: { id: true, name: true, role: true, email: true } },
   users_orders_approved_byTousers: { select: { id: true, name: true } },
+  reviews: { select: { product_id: true } },
 } as const
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,6 +59,7 @@ function normalizeOrder(raw: any) {
     seller: raw.companies_orders_seller_idTocompanies,
     created_by_user: raw.users_orders_created_byTousers,
     approved_by_user: raw.users_orders_approved_byTousers,
+    reviewed_product_ids: (raw.reviews ?? []).map((r: any) => r.product_id),
     items: (raw.order_items ?? []).map((item: any) => ({
       id: item.id,
       order_id: item.order_id,

@@ -9,7 +9,16 @@ export class CompaniesService {
   async findOne(id: string) {
     const company = await this.prisma.companies.findUnique({ where: { id } })
     if (!company) throw new NotFoundException('Company not found')
-    return company
+
+    const [totalOrders, deliveredOrders] = await Promise.all([
+      this.prisma.orders.count({ where: { seller_id: id } }),
+      this.prisma.orders.count({ where: { seller_id: id, status: 'delivered' } }),
+    ])
+
+    return {
+      ...company,
+      delivery_rate: totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : null,
+    }
   }
 
   async updateMy(companyId: string, dto: UpdateCompanyDto) {

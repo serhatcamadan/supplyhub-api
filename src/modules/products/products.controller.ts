@@ -38,6 +38,13 @@ export class ProductsController {
     return this.productsService.findOne(id)
   }
 
+  /** Buyer: ürün fiyat geçmişi (public) */
+  @Get('products/:id/price-history')
+  @ApiOperation({ summary: 'Get price history for a product' })
+  getPriceHistory(@Param('id') id: string) {
+    return this.productsService.getPriceHistory(id)
+  }
+
   /** Seller: kendi ürünlerini listele */
   @Get('seller/products')
   @UseGuards(JwtAuthGuard, RolesGuard)
