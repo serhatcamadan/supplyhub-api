@@ -33,7 +33,7 @@ function getUnitPrice(quantity: number, tiers: PriceTier[]): number | null {
 const ORDER_INCLUDE = {
   order_items: {
     include: {
-      products: { select: { id: true, name: true, image_url: true } },
+      products: { select: { id: true, name: true, image_url: true, category: true } },
     },
   },
   companies_orders_buyer_idTocompanies: { select: { id: true, name: true, type: true } },
