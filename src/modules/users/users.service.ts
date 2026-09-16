@@ -11,10 +11,26 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async getMe(userId: string) {
-    return this.prisma.users.findUniqueOrThrow({
+    const user = await this.prisma.users.findUniqueOrThrow({
       where: { id: userId },
-      select: { ...USER_SELECT, companies: { select: { name: true, type: true } } },
+      select: {
+        ...USER_SELECT,
+        companies: {
+          select: {
+            name: true, type: true, industry: true,
+            free_shipping_threshold: true, shipping_fee: true,
+          },
+        },
+      },
     })
+    return {
+      ...user,
+      companies: {
+        ...user.companies,
+        free_shipping_threshold: Number(user.companies.free_shipping_threshold),
+        shipping_fee: Number(user.companies.shipping_fee),
+      },
+    }
   }
 
   async updateMe(userId: string, dto: UpdateUserDto) {
