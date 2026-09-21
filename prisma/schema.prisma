@@ -24,6 +24,8 @@ model companies {
   users                              users[]
   notifications                      notifications[]
   reviews                            reviews[]
+  auctions                           auctions[]
+  bids                               bids[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -77,6 +79,7 @@ model products {
   quote_requests        quote_requests[]
   reviews               reviews[]
   product_price_history product_price_history[]
+  auctions              auctions[]
 }
 
 /// Bir ürünün başlangıç (en düşük tier) fiyatı her değiştiğinde alınan anlık görüntü.
@@ -120,6 +123,36 @@ model quote_requests {
   created_at            DateTime  @default(now()) @db.Timestamptz(6)
   companies             companies @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   products              products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// Satıcının bir ürünü açık artırmaya çıkardığı ilan. current_price/current_bidder_id
+/// teklif yarışının atomik hedefi olarak denormalize edilmiştir — bids tablosu salt-okunur
+/// bir denetim (audit) kaydıdır, yarış kontrolü bunun üzerinden yapılmaz.
+model auctions {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id        String     @db.Uuid
+  starting_price    Decimal    @db.Decimal
+  current_price     Decimal    @db.Decimal
+  current_bidder_id String?    @db.Uuid
+  bid_count         Int        @default(0)
+  status            String     @default("active")
+  ends_at           DateTime   @db.Timestamptz(6)
+  created_at        DateTime   @default(now()) @db.Timestamptz(6)
+  products          products   @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  companies         companies? @relation(fields: [current_bidder_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  bids              bids[]
+}
+
+/// Bir ihaledeki her teklifin denetim kaydı. Güncel fiyat auctions.current_price'ta tutulur —
+/// buradan MAX() ile türetilmez (atomik güncelleme hedefi tek bir sütun olmalı).
+model bids {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  auction_id String    @db.Uuid
+  bidder_id  String    @db.Uuid
+  amount     Decimal   @db.Decimal
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  auctions   auctions  @relation(fields: [auction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  companies  companies @relation(fields: [bidder_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model notifications {

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
+import { ScheduleModule } from '@nestjs/schedule'
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
 import { envValidationSchema } from './config/env.validation.js'
@@ -16,6 +17,7 @@ import { CompaniesModule } from './modules/companies/companies.module.js'
 import { UsersModule } from './modules/users/users.module.js'
 import { NotificationsModule } from './modules/notifications/notifications.module.js'
 import { ReviewsModule } from './modules/reviews/reviews.module.js'
+import { AuctionsModule } from './modules/auctions/auctions.module.js'
 
 @Module({
   imports: [
@@ -23,6 +25,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module.js'
       isGlobal: true,
       validationSchema: envValidationSchema,
     }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60_000, limit: 100 },
     ]),
@@ -37,6 +40,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module.js'
     UsersModule,
     NotificationsModule,
     ReviewsModule,
+    AuctionsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service.js'
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
 import type { Prisma } from '@prisma/client'
 
-export type NotificationCategory = 'order' | 'quote' | 'system'
+export type NotificationCategory = 'order' | 'quote' | 'system' | 'auction'
 
 export interface CreateNotificationInput {
   category: NotificationCategory

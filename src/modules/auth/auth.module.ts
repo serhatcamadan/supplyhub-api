@@ -17,6 +17,6 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js'
   ],
   controllers: [AuthController],
   providers: [AuthService, OtpStore, ResetTokenStore, EmailService, JwtStrategy, JwtAuthGuard],
-  exports: [PassportModule, JwtStrategy, JwtAuthGuard],
+  exports: [PassportModule, JwtModule, JwtStrategy, JwtAuthGuard],
 })
 export class AuthModule {}
