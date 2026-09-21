@@ -31,11 +31,11 @@ export class ProductsController {
     return this.productsService.findAll()
   }
 
-  /** Buyer: ürün detay (public) */
+  /** Buyer: ürün detay (public) — taslak ürünler herkese 404 döner */
   @Get('products/:id')
   @ApiOperation({ summary: 'Get product by id' })
   findOne(@Param('id') id: string) {
-    return this.productsService.findOne(id)
+    return this.productsService.findPublic(id)
   }
 
   /** Buyer: ürün fiyat geçmişi (public) */
@@ -53,6 +53,16 @@ export class ProductsController {
   @ApiOperation({ summary: "List seller's own products" })
   findBySeller(@CurrentUser() user: JwtPayload) {
     return this.productsService.findAll(user.companyId)
+  }
+
+  /** Seller: kendi ürün detayı (taslak dahil — düzenleme sayfası için) */
+  @Get('seller/products/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('seller')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get a seller's own product by id, including drafts" })
+  findOwn(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.productsService.findOwn(id, user.companyId)
   }
 
   /** Seller: yeni ürün oluştur */

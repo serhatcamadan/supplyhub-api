@@ -49,7 +49,7 @@ export class ProductsService {
     })
   }
 
-  async findOne(id: string) {
+  private async fetchWithStats(id: string) {
     const product = await this.prisma.products.findUnique({
       where: { id },
       include: { companies: { select: { id: true, name: true } } },
@@ -67,6 +67,25 @@ export class ProductsService {
       avg_rating: stat._count.rating > 0 ? Math.round(Number(stat._avg.rating) * 10) / 10 : null,
       review_count: stat._count.rating,
     }
+  }
+
+  /** Internal — no visibility filtering. Only for owner-checked mutation paths (update/remove/updateStatus). */
+  async findOne(id: string) {
+    return this.fetchWithStats(id)
+  }
+
+  /** Public product detail — draft products 404 for everyone except their own seller. */
+  async findPublic(id: string) {
+    const product = await this.fetchWithStats(id)
+    if (product.status !== 'active') throw new NotFoundException(`Product ${id} not found`)
+    return product
+  }
+
+  /** Seller's own product detail (used by the edit page) — bypasses the active-only filter, ownership-checked. */
+  async findOwn(id: string, ownerId: string) {
+    const product = await this.fetchWithStats(id)
+    if (product.seller_id !== ownerId) throw new ForbiddenException()
+    return product
   }
 
   async create(dto: CreateProductDto, sellerId: string) {
@@ -116,6 +135,7 @@ export class ProductsService {
   }
 
   async getPriceHistory(id: string) {
+    await this.findPublic(id) // 404s for draft/unpublished products, same as the detail endpoint
     const rows = await this.prisma.product_price_history.findMany({
       where: { product_id: id },
       orderBy: { recorded_at: 'asc' },

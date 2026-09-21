@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { NotFoundException } from '@nestjs/common'
+import { NotFoundException, ForbiddenException } from '@nestjs/common'
 import { ProductsService } from './products.service.js'
 
 function makeProduct(overrides: Record<string, unknown> = {}) {
@@ -187,6 +187,7 @@ describe('ProductsService.update', () => {
 describe('ProductsService.getPriceHistory', () => {
   it('returns price points as plain numbers, ordered by recorded_at', async () => {
     const prisma = mockPrisma({
+      products: { findUnique: vi.fn().mockResolvedValue(makeProduct({ status: 'active' })) },
       product_price_history: {
         findMany: vi.fn().mockResolvedValue([
           { price: 185, recorded_at: new Date('2026-01-01') },
@@ -206,5 +207,57 @@ describe('ProductsService.getPriceHistory', () => {
       where: { product_id: 'prod-1' },
       orderBy: { recorded_at: 'asc' },
     })
+  })
+
+  it('throws NotFoundException for a draft product (no owner check available on the public route)', async () => {
+    const prisma = mockPrisma({
+      products: { findUnique: vi.fn().mockResolvedValue(makeProduct({ status: 'draft' })) },
+    })
+    const service = new ProductsService(prisma)
+
+    await expect(service.getPriceHistory('prod-1')).rejects.toThrow(NotFoundException)
+    expect(prisma.product_price_history.findMany).not.toHaveBeenCalled()
+  })
+})
+
+describe('ProductsService.findPublic', () => {
+  it('returns an active product', async () => {
+    const prisma = mockPrisma({
+      products: { findUnique: vi.fn().mockResolvedValue(makeProduct({ status: 'active' })) },
+    })
+    const service = new ProductsService(prisma)
+
+    const result = await service.findPublic('prod-1')
+    expect(result.id).toBe('prod-1')
+  })
+
+  it('throws NotFoundException for a draft product — draft/unpublished products are not publicly visible', async () => {
+    const prisma = mockPrisma({
+      products: { findUnique: vi.fn().mockResolvedValue(makeProduct({ status: 'draft' })) },
+    })
+    const service = new ProductsService(prisma)
+
+    await expect(service.findPublic('prod-1')).rejects.toThrow(NotFoundException)
+  })
+})
+
+describe('ProductsService.findOwn', () => {
+  it("returns the product when the caller is its seller, even if it's a draft", async () => {
+    const prisma = mockPrisma({
+      products: { findUnique: vi.fn().mockResolvedValue(makeProduct({ status: 'draft', seller_id: 'company-seller' })) },
+    })
+    const service = new ProductsService(prisma)
+
+    const result = await service.findOwn('prod-1', 'company-seller')
+    expect(result.id).toBe('prod-1')
+  })
+
+  it("throws ForbiddenException when the caller is not the product's seller", async () => {
+    const prisma = mockPrisma({
+      products: { findUnique: vi.fn().mockResolvedValue(makeProduct({ status: 'draft', seller_id: 'company-seller' })) },
+    })
+    const service = new ProductsService(prisma)
+
+    await expect(service.findOwn('prod-1', 'company-other')).rejects.toThrow(ForbiddenException)
   })
 })

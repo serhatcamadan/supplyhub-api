@@ -9,7 +9,8 @@ export class AppService {
     return 'Hello World!'
   }
 
-  async getCompanies() {
-    return this.prisma.companies.findMany()
+  async checkDb(): Promise<boolean> {
+    await this.prisma.companies.count()
+    return true
   }
 }

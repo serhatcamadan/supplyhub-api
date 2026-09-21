@@ -140,6 +140,20 @@ describe('OrdersService — fiyat hesaplama (getUnitPrice)', () => {
       service.create({ sellerId: 'company-seller', items: [{ productId: 'nonexistent', quantity: 10 }] }, buyerAdmin)
     ).rejects.toThrow(NotFoundException)
   })
+
+  it('dto.sellerId ürünün gerçek satıcısıyla uyuşmuyorsa → BadRequestException, sipariş oluşturulmaz', async () => {
+    const product = makeProduct({ seller_id: 'company-seller' }) // gerçek satıcı
+    const prisma = mockPrisma()
+    prisma.products.findMany.mockResolvedValue([product])
+
+    const service = new OrdersService(prisma as any, mockNotifications() as any)
+    await expect(
+      service.create({ sellerId: 'company-other-seller', items: [{ productId: 'prod-1', quantity: 10 }] }, buyerAdmin)
+    ).rejects.toThrow(BadRequestException)
+
+    expect(prisma.products.update).not.toHaveBeenCalled()
+    expect(prisma.orders.create).not.toHaveBeenCalled()
+  })
 })
 
 // ── stok düşürme/geri yükleme ──────────────────────────────────────────────

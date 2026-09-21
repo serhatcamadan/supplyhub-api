@@ -12,7 +12,7 @@ export class AppController {
 
   @Get('health/db')
   async testDb() {
-    const companies = await this.appService.getCompanies()
-    return { ok: true, count: companies.length, companies }
+    const ok = await this.appService.checkDb()
+    return { ok }
   }
 }

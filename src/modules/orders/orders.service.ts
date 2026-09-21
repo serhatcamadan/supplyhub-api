@@ -113,6 +113,9 @@ export class OrdersService {
       const itemsData = dto.items.map((item) => {
         const product = productMap.get(item.productId)
         if (!product) throw new NotFoundException(`Product ${item.productId} not found`)
+        if (product.seller_id !== dto.sellerId) {
+          throw new BadRequestException(`Product ${item.productId} does not belong to seller ${dto.sellerId}`)
+        }
 
         if (item.quantity > product.stock_quantity) {
           throw new BadRequestException(

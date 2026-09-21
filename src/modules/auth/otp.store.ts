@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { randomInt } from 'crypto'
 
 interface OtpEntry {
   code: string
@@ -21,7 +22,7 @@ export class OtpStore {
     for (const [key, entry] of this.store) {
       if (now > entry.expiresAt) this.store.delete(key)
     }
-    const code = Math.floor(100_000 + Math.random() * 900_000).toString()
+    const code = randomInt(100_000, 1_000_000).toString()
     this.store.set(email.toLowerCase(), {
       code,
       expiresAt: now + OTP_TTL_MS,
