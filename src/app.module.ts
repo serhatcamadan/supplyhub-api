@@ -18,6 +18,8 @@ import { UsersModule } from './modules/users/users.module.js'
 import { NotificationsModule } from './modules/notifications/notifications.module.js'
 import { ReviewsModule } from './modules/reviews/reviews.module.js'
 import { AuctionsModule } from './modules/auctions/auctions.module.js'
+import { DiscoverModule } from './modules/discover/discover.module.js'
+import { SearchLogsModule } from './modules/search-logs/search-logs.module.js'
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { AuctionsModule } from './modules/auctions/auctions.module.js'
     NotificationsModule,
     ReviewsModule,
     AuctionsModule,
+    DiscoverModule,
+    SearchLogsModule,
   ],
   controllers: [AppController],
   providers: [

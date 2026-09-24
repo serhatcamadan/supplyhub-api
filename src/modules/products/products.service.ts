@@ -2,18 +2,8 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../../prisma/prisma.service.js'
 import { CreateProductDto } from './dto/create-product.dto.js'
 import { UpdateProductDto } from './dto/update-product.dto.js'
+import { getStartingPrice, type PriceTier } from '../../common/pricing.js'
 import type { Prisma } from '@prisma/client'
-
-interface PriceTier {
-  min_qty: number
-  max_qty?: number | null
-  price: number
-}
-
-function getStartingPrice(tiers: PriceTier[]): number | null {
-  if (!tiers || tiers.length === 0) return null
-  return [...tiers].sort((a, b) => a.min_qty - b.min_qty)[0]?.price ?? null
-}
 
 @Injectable()
 export class ProductsService {
